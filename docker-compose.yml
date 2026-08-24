@@ -1,0 +1,12 @@
+# ビルド専用compose
+# `docker compose build`
+services:
+  db-schema-mcp:
+    build:
+      context: ./db-schema-mcp
+    image: db-schema-mcp:latest
+
+  github-mcp:
+    build:
+      context: ./github-mcp
+    image: github-mcp:latest

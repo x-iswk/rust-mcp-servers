@@ -1,0 +1,18 @@
+{
+  "$schema": "https://raw.githubusercontent.com/devcontainers/spec/main/schemas/devContainer.schema.json",
+  "name": "iswk-mcp",
+  "image": "rust:1.97-slim",
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+  "customizations": {
+    "vscode": {
+      "extensions": ["rust-lang.rust-analyzer", "Anthropic.claude-code"]
+    }
+  },
+  "runArgs": [
+    "--rm",
+    "--add-host=host.docker.internal:host-gateway",
+    "--env-file",
+    "${localWorkspaceFolder}/.devcontainer/mcp/.env"
+  ]
+}
