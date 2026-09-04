@@ -1,12 +1,21 @@
-# ビルド専用compose
-# `docker compose build`
+# Streamable HTTP方式のMCPサーバーを常駐起動するcompose
+# `docker compose up -d` で起動、`docker compose down` で停止する。
 services:
   db-schema-mcp:
     build:
       context: ./db-schema-mcp
     image: db-schema-mcp:latest
+    env_file: ./db-schema-mcp/.env
+    # 外部で別途起動しているPostgreSQLコンテナにhost.docker.internal経由で接続するため
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:8081:8081"
 
   github-mcp:
     build:
       context: ./github-mcp
     image: github-mcp:latest
+    env_file: ./github-mcp/.env
+    ports:
+      - "127.0.0.1:8082:8082"

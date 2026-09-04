@@ -10,4 +10,6 @@ COPY --from=builder \
   /app/target/release/github-mcp \
   /usr/local/bin/github-mcp
 
+EXPOSE 8082
+
 CMD ["github-mcp"]

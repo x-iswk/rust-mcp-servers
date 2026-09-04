@@ -1,18 +1,47 @@
 //! `github-mcp`: GitHub GraphQL APIを利用してプルリクエストの情報を取得するMCPサーバー。
 //!
-//! `rmcp`を使い、標準入出力(stdio)経由でMCPクライアントと通信する。
+//! `rmcp`を使い、Streamable HTTP経由でMCPクライアントと通信する。
+//! 常駐プロセスとして起動し、複数クライアントからの接続を1プロセスで受け付ける。
 //! 提供するツールの実体は[`github`]モジュールを参照。
 
 mod github;
 
+use std::{env, net::SocketAddr};
+
 use anyhow::Result;
 use github::GitMcpServer;
-use rmcp::{ServiceExt, transport::stdio};
+use rmcp::transport::streamable_http_server::{
+    StreamableHttpServerConfig, StreamableHttpService, session::local::LocalSessionManager,
+};
 
-/// サーバーを起動し、MCPクライアントからの接続をstdio経由で待ち受ける。
+/// 待受ポート。環境変数`MCP_PORT`で上書き可能(未設定時は`8082`)。
+fn bind_address() -> Result<SocketAddr> {
+    let port: u16 = env::var("MCP_PORT").unwrap_or_else(|_| "8082".to_string()).parse()?;
+    Ok(SocketAddr::from(([0, 0, 0, 0], port)))
+}
+
+/// サーバーを起動し、MCPクライアントからの接続をStreamable HTTP経由で待ち受ける。
 #[tokio::main]
 async fn main() -> Result<()> {
-    let service = GitMcpServer::new()?.serve(stdio()).await?;
-    service.waiting().await?;
+    let ct = tokio_util::sync::CancellationToken::new();
+
+    let service = StreamableHttpService::new(
+        || GitMcpServer::new().map_err(std::io::Error::other),
+        LocalSessionManager::default().into(),
+        StreamableHttpServerConfig::default().with_cancellation_token(ct.child_token()),
+    );
+
+    let router = axum::Router::new().nest_service("/mcp", service);
+    let addr = bind_address()?;
+    let tcp_listener = tokio::net::TcpListener::bind(addr).await?;
+    eprintln!("github-mcp: listening on http://{addr}/mcp");
+
+    axum::serve(tcp_listener, router)
+        .with_graceful_shutdown(async move {
+            let _ = tokio::signal::ctrl_c().await;
+            ct.cancel();
+        })
+        .await?;
+
     Ok(())
 }
